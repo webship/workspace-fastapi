@@ -33,9 +33,9 @@ services:
     build:
       context: ${DDEV_APPROOT}/app
       dockerfile: backend/Dockerfile
-    # The app's own image, built here from its backend/Dockerfile, never pulled.
-    image: ddev-${DDEV_SITENAME}-fastapi:app
-    pull_policy: build
+    # The app's own image, built from its backend/Dockerfile. It takes no name of its own (compose names it after the
+    # project and the service, ddev-<name>-fastapi): DDEV pulls every image a service names before it builds, and asked
+    # for this one, a registry answers that it does not exist.
     container_name: ddev-${DDEV_SITENAME}-fastapi
     labels:
       com.ddev.site-name: ${DDEV_SITENAME}

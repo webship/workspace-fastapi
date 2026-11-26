@@ -195,14 +195,14 @@ test('on DDEV: the app\'s service and Postgres\'s from the plugin\'s compose fil
   assert.match(fs.readFileSync(path.join(ddev, 'config.fastapi.yaml'), 'utf8'), /^# app: the official full-stack FastAPI template 0\.12\.0$/m);
 });
 
-test('the compose file: the app built from its own Dockerfile and never pulled, the address sent to it, Postgres healthy first with its data in the project\'s volume', () => {
+test('the compose file: the app built from its own Dockerfile, named by no registry, the address sent to it, Postgres healthy first with its data in the project\'s volume', () => {
   const y = read('scripts/docker-compose.fastapi.yaml');
   assert.match(y, /^ {2}postgres:\n {4}image: "\$\{FASTAPI_POSTGRES_IMAGE\}"$/m);
   assert.match(y, /test: \["CMD-SHELL", "pg_isready -U postgres -d app"\]/);
   assert.match(y, /^ {6}- postgres:\/var\/lib\/postgresql$/m);
   assert.match(y, /^volumes:\n {2}postgres:\n?$/m, 'a volume of the project\'s own, removed with it');
   assert.match(y, /^ {4}build:\n {6}context: \$\{DDEV_APPROOT\}\/app\n {6}dockerfile: backend\/Dockerfile$/m);
-  assert.match(y, /^ {4}pull_policy: build$/m);
+  assert.doesNotMatch(y.slice(y.indexOf('\n  fastapi:')), /^ {4}image:/m, 'the app\'s image takes no name a pull would ask a registry for');
   assert.match(y, /depends_on:\n {6}postgres:\n {8}condition: service_healthy/);
   assert.match(y, /- \$\{DDEV_APPROOT\}\/\.webship-fastapi\/env$/m);
   assert.match(y, /- \$\{DDEV_APPROOT\}\/\.webship-fastapi\/postgres\.env$/m);

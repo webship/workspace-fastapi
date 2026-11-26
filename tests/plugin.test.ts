@@ -56,7 +56,7 @@ test('the functions carry the names the core\'s tools look for, and build the ap
   assert.match(src, /^readonly FASTAPI_TEMPLATE_VERSION='0\.12\.0';$/m, 'a release of the template');
   assert.match(src, /^readonly FASTAPI_POSTGRES_IMAGE='docker\.io\/library\/postgres@sha256:[0-9a-f]{64}';$/m, 'Postgres pinned by digest');
   assert.match(src, /git clone --quiet --depth 1 --branch "\$\{FASTAPI_TEMPLATE_VERSION\}"/, 'the template is taken at its pinned release');
-  assert.match(read('scripts/docker-compose.fastapi.yaml'), /pull_policy: build/, 'the app\'s own image is built, never pulled');
+  assert.match(read('scripts/docker-compose.fastapi.yaml'), /^ {4}build:\n {6}context: \$\{DDEV_APPROOT\}\/app$/m, 'the app\'s own image is built from its own source');
   assert.doesNotMatch(src + read('scripts/docker-compose.fastapi.yaml'), /:latest\b|@latest\b/, 'nothing is taken at latest');
   assert.match(src, /^readonly FASTAPI_STEPS_VERSION='\^2\.0\.\d+';$/m, 'the testing setup takes the pack\'s release line');
   assert.doesNotMatch(src, /ddev stop -y/, 'ddev stop takes no -y');

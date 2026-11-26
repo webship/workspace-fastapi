@@ -51,8 +51,9 @@ database.
 DDEV runs Postgres only up to 17, and the template wants 18: the app's Postgres is its own service, its data in a
 volume named after the project, and DDEV's own export, import and snapshot do not reach it. The row's Backup writes a
 `pg_dump` of it (`-db.dump`) beside the archive; the row's Import puts one back after a check that it is whole, with an
-export of the database as it was taken first. On a terminal: `ddev export-db --file=<path>.dump` and `ddev import-db
---file=<path>.dump` in the project's folder do the same (the workspace's `ddev` asks the plugin).
+export of the database as it was taken first. On a terminal, in the project's folder: `bash
+~/workspace/core/scripts/runtime-verb.sh export-db --file=<path>.dump`, and `import-db` the same way (a name ending in
+`.sql.gz` is a gzipped SQL dump instead). DDEV's own `ddev export-db` there is DDEV's, which has no database to export.
 
 ## When it does not answer
 

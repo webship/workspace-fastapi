@@ -159,11 +159,13 @@ Restore ask first, on every runtime:
   with new connections. A restore that fails leaves the app's database as it was.
 - A file named `*.sql.gz` (the safety dump before a remove, a clone) is a gzipped SQL dump instead.
 
-The same works on a terminal in the project's folder, through the workspace's `ddev`:
+The same works on a terminal, in the project's folder, through the workspace's runtime verbs (DDEV's own `ddev
+export-db` there is DDEV's, which has no database to export):
 
 ```bash
-ddev export-db --file=../before.dump
-ddev import-db --file=../before.dump
+cd ~/workspace/dev/fapp
+bash ~/workspace/core/scripts/runtime-verb.sh export-db --file=../fapp-before.dump
+bash ~/workspace/core/scripts/runtime-verb.sh import-db --file=../fapp-before.dump
 ```
 
 ### Test an app
