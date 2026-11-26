@@ -142,12 +142,19 @@ ENVEOF
   ) ;
 }
 
+# The app's settings put in the environment as a compose env file is read: each KEY=value line as it is, never
+# through the shell (a value may have spaces, as the template's PROJECT_NAME does).
+function fastapi_env_line() {
+  local env_file="$1" ;
+  echo "while IFS= read -r l ; do case \"\$l\" in ''|'#'*) ;; *=*) export \"\${l%%=*}=\${l#*=}\" ;; esac ; done < ${env_file}" ;
+}
+
 # The command the app's container runs: the app's settings, the template's prestart.sh (its migrations and first
 # superuser: safe to run again), then FastAPI's server. Postgres is waited for first on another runtime, where the web
 # container starts beside it.
 function fastapi_serve_line() {
   local env_file="$1" ;
-  echo "set -a && . ${env_file} && set +a && until python3 -c 'import socket; socket.create_connection((\"postgres\", 5432), 2)' 2> /dev/null; do sleep 2; done && cd /app/backend && bash scripts/prestart.sh && exec fastapi run --workers ${FASTAPI_WORKERS} --port ${FASTAPI_PORT}" ;
+  echo "$(fastapi_env_line "${env_file}") && until python3 -c 'import socket; socket.create_connection((\"postgres\", 5432), 2)' 2> /dev/null; do sleep 2; done && cd /app/backend && bash scripts/prestart.sh && exec fastapi run --workers ${FASTAPI_WORKERS} --port ${FASTAPI_PORT}" ;
 }
 
 # What DDEV is told: the app's service and Postgres's (the plugin's docker-compose.fastapi.yaml), and the mark that makes
@@ -520,7 +527,8 @@ function fastapi_import_db() {
 # folder once webship-js is scaffolded and before the dependencies are installed; for a project that is not an app of
 # this builder it changes nothing.
 #
-# It adds the pack to package.json; lists its step definitions in cucumber.js after webship-js's own; adds the accounts
+# It adds the pack to package.json; lists its step definitions in cucumber.js after webship-js's own; gives the suite
+# the app's address where the scaffold has its placeholder; adds the accounts
 # the scenarios name (worldParameters.users: admin and user, their passwords from the environment, the workspace's by
 # default) and, for the template, the one known error its pages log (the 404 of /vite.svg, by its address alone); and
 # writes a first feature for the template when the project has none of its own. Every part is skipped when it is
@@ -535,12 +543,16 @@ function testing_configure_fastapi() {
   local template='no' ;
   [ -f "${project_path}/${FASTAPI_APP}/frontend/src/routes/login.tsx" ] && grep -q 'app.frontend("/"' "${project_path}/${FASTAPI_APP}/backend/app/main.py" 2> /dev/null && template='yes' ;
 
+  # The app's address, as its runtime gives it (https://<name>.ddev.site on DDEV).
+  local address ;
+  address="$(cd "${project_path}" && PROJECT_NAME="${PROJECT_NAME:-$(basename "${project_path}")}" fastapi_url)" ;
+
   echo "Adding the FastAPI step pack (${FASTAPI_STEPS_PACKAGE} ${FASTAPI_STEPS_VERSION}).";
 
-  python3 - "${project_path}" "${FASTAPI_STEPS_PACKAGE}" "${FASTAPI_STEPS_VERSION}" "${template}" <<'PYEOF' || return 1
+  python3 - "${project_path}" "${FASTAPI_STEPS_PACKAGE}" "${FASTAPI_STEPS_VERSION}" "${template}" "${address}" <<'PYEOF' || return 1
 import json, re, sys
 
-project, pack, version, template = sys.argv[1:5]
+project, pack, version, template, address = sys.argv[1:6]
 
 # package.json: the pack as a dev dependency, at the release line this plugin was proven on.
 pkg_file = project + '/package.json'
@@ -601,6 +613,14 @@ if template == 'yes' and 'vite\\\\.svg' not in src and 'vite\\.svg' not in src:
         done = False
     if done:
         print('  cucumber.js: the 404 of /vite.svg let through by its address (webship-js 2.0.19)')
+
+# The address the suite opens when LAUNCH_URL is not set. On DDEV the router sends the project's address to the app's
+# own service, so DDEV gives the web container no primary URL, and the scaffold's placeholder would be the suite's
+# address: it becomes the app's. On another runtime the tests' container is given LAUNCH_URL, which still wins.
+placeholder = "process.env.LAUNCH_URL || 'http://localhost:8080'"
+if address and placeholder in src:
+    src = src.replace(placeholder, "process.env.LAUNCH_URL || '%s'" % address)
+    print('  cucumber.js: the address of the app (%s)' % address)
 
 if src != before:
     open(cucumber_file, 'w').write(src)

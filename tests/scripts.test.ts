@@ -96,8 +96,10 @@ test('the testing hook adds the step pack, the accounts, the template\'s one kno
   const wp = config.default.worldParameters;
   assert.deepStrictEqual(wp.users, { admin: { username: 'admin@example.com', password: 'dD.123123ddd' }, user: { username: 'user@example.com', password: 'dD.123123ddd' } });
   assert.strictEqual(loadConfig(path.join(p.dir, 'cucumber.js'), { FASTAPI_ADMIN_PASSWORD: 'another' }).default.worldParameters.users.admin.password, 'another');
-  assert.strictEqual(wp.launchUrl, 'http://localhost:8080', 'what was there stays');
-  const ignore = new RegExp(wp.javascript.ignore);
+  assert.strictEqual(wp.launchUrl, 'https://app1.ddev.site', 'the app\'s address where the scaffold had its placeholder');
+  assert.strictEqual(loadConfig(path.join(p.dir, 'cucumber.js'), { LAUNCH_URL: 'http://127.0.0.1:43210' }).default.worldParameters.launchUrl, 'http://127.0.0.1:43210', 'LAUNCH_URL still wins');
+  assert.match(r.stdout, /cucumber\.js: the address of the app \(https:\/\/app1\.ddev\.site\)/);
+  assert.strictEqual(wp.selectors.css && typeof wp.selectors.css, 'object', 'what was there stays');  const ignore = new RegExp(wp.javascript.ignore);
   for (const url of ['https://app1.ddev.site/vite.svg', 'http://127.0.0.1:43210/vite.svg', 'http://172.18.0.2:30080/vite.svg']) assert.match(`${VITE} @ ${url}`, ignore);
   for (const other of [`${VITE} @ https://app1.ddev.site/api/v1/items/`, `${VITE} @ https://app1.ddev.site/assets/vite.svg`, `${VITE} @ https://app1.ddev.site/vite.svg?v=2`,
     'Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ https://app1.ddev.site/vite.svg', `${VITE}`]) {
@@ -177,6 +179,17 @@ test('the app\'s settings: a secret and a database password of the project\'s ow
   const other = tmp('env');
   bash(`fastapi_write_env ${other} https://app2.ddev.site`);
   assert.ok(!fs.readFileSync(path.join(other, '.webship-fastapi', 'env'), 'utf8').includes(secret));
+});
+
+test('on another runtime the app\'s settings reach it as a compose env file is read: each line as it is, spaces kept, never through the shell', () => {
+  const dir = tmp('envline');
+  const file = path.join(dir, 'env');
+  fs.writeFileSync(file, '# A comment\nPROJECT_NAME=Full Stack FastAPI Project\nSECRET_KEY=a-b_c\nDATABASE_URL=postgresql://postgres:p-q_r@postgres:5432/app\nODD=$(touch ' + dir + '/ran) `x` ;y\n\n');
+  const line = bash(`fastapi_env_line ${file}`).stdout.trim();
+  const r = spawnSync('bash', ['-c', `${line} && printf '%s|%s|%s|%s' "$PROJECT_NAME" "$SECRET_KEY" "$DATABASE_URL" "$ODD"`], { encoding: 'utf8' });
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.strictEqual(r.stdout, 'Full Stack FastAPI Project|a-b_c|postgresql://postgres:p-q_r@postgres:5432/app|$(touch ' + dir + '/ran) `x` ;y');
+  assert.ok(!fs.existsSync(path.join(dir, 'ran')), 'a value is never run');
 });
 
 test('on DDEV: the app\'s service and Postgres\'s from the plugin\'s compose file, Postgres pinned by digest, and the builder\'s mark', () => {
@@ -312,7 +325,7 @@ for (const [rt, url, engine] of [['docker', 'http://127.0.0.1:43210', 'docker'],
     assert.match(b.calls, /^rt_stack image fastapi-app1:app$/m);
     assert.ok(b.calls.includes(`\nrt_service postgres ${DIGEST} --port 5432 --env-file .webship-fastapi/postgres.env --volume /var/lib/postgresql\n`), b.calls);
     assert.match(b.calls, /^rt_serve 8000$/m);
-    assert.match(b.serve, /^set -a && \. \/var\/www\/html\/\.webship-fastapi\/env && set \+a && until python3 -c .*"postgres", 5432.* && cd \/app\/backend && bash scripts\/prestart\.sh && exec fastapi run --workers 2 --port 8000$/m);
+    assert.match(b.serve, /^while IFS= read -r l ; do .* done < \/var\/www\/html\/\.webship-fastapi\/env && until python3 -c .*"postgres", 5432.* && cd \/app\/backend && bash scripts\/prestart\.sh && exec fastapi run --workers 2 --port 8000$/m);
     const order = ['ddev config', `${engine} build`, 'rt_claim', 'rt_stack', 'rt_service', 'rt_serve', 'ddev start -y'].map((s) => b.calls.indexOf(s));
     assert.deepStrictEqual([...order].sort((x, y) => x - y), order, 'the image before the stack that takes it');
     const env = fs.readFileSync(path.join(b.project, '.webship-fastapi', 'env'), 'utf8');
