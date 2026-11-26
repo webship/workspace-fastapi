@@ -1,0 +1,101 @@
+{
+  "name": "@webship.co/workspace-fastapi",
+  "version": "1.0.0",
+  "description": "FastAPI for Webship Workspace: the builder (`cmd-fastapi-project.sh`) in every sites folder, which makes a FastAPI app from the official full-stack template (release 0.12.0) or takes one laid out as it is from its repository, builds the app's own image (its backend/Dockerfile: bun builds the front end, Python runs FastAPI) and serves it from a container of its own, on a Postgres 18 of its own pinned by digest (DDEV by default, or Docker Compose, Podman or Kubernetes with --runtime). Its accounts made through the app's API, its database backed up and restored through the core's database hook (pg_dump and pg_restore), the FastAPI step pack wired into the testing setup of such an app, and its AI items in their folders: two agents, a skill, a command and two prompts for building and testing FastAPI apps.",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "license": "ISC",
+  "engines": {
+    "node": ">=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webship/workspace-fastapi.git"
+  },
+  "files": [
+    "dist/src",
+    "ai",
+    "commands",
+    "features",
+    "scripts",
+    "testing",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "workspacePlugin": {
+    "name": "fastapi",
+    "label": "FastAPI",
+    "needs": [
+      [
+        "dev",
+        "test",
+        "sandboxes",
+        "demos"
+      ],
+      "ai-agents",
+      "ai-skills",
+      "ai-commands",
+      "ai-prompts"
+    ],
+    "commands": {
+      "types": [
+        "sites"
+      ],
+      "workspaces": [
+        "dev",
+        "test",
+        "sandboxes",
+        "demos"
+      ],
+      "files": [
+        "commands/cmd-fastapi-project.sh"
+      ]
+    },
+    "scripts": {
+      "functions": [
+        "scripts/functions/fun-fastapi.sh"
+      ],
+      "args": [
+        "scripts/args/arg-fastapi.sh"
+      ],
+      "machine": [
+        "scripts/docker-compose.fastapi.yaml",
+        "testing/site.feature"
+      ]
+    },
+    "ai": {
+      "agents": [
+        "ai/agents/fastapi-app-builder.md",
+        "ai/agents/fastapi-tester.md"
+      ],
+      "skills": [
+        "ai/skills/fastapi-scenarios"
+      ],
+      "commands": [
+        "ai/commands/fastapi-test.md"
+      ],
+      "prompts": [
+        "ai/prompts/fastapi-build-and-test.md",
+        "ai/prompts/fastapi-scenarios-for-an-app.md"
+      ]
+    },
+    "features": [
+      "features/fastapi.feature",
+      "features/fastapi-runtimes.feature"
+    ],
+    "featuresSite": "cmd-fastapi-project.sh ci-fastapi --install --add-users --runtime docker"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@webship.co/workspace-plugin-api": "^1.0.13",
+    "typescript": "^5.9.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
