@@ -50,4 +50,4 @@ git() {
 }
 
 docker() { echo "docker $*" >> "${LOG}" ; return 0 ; }
-podman() { echo "podman $*" >> "${LOG}" ; return 0 ; }
+podman() { echo "podman $*${CONTAINERS_REGISTRIES_CONF:+ (registries: ${CONTAINERS_REGISTRIES_CONF##*/})}" >> "${LOG}" ; return 0 ; }

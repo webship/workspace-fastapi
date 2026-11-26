@@ -186,12 +186,22 @@ function fastapi_runtime_config() {
   rt_serve "${FASTAPI_PORT}" "$(fastapi_serve_line "/var/www/html/${FASTAPI_OWN}/env")" ;
 }
 
-# The app's own image on another runtime, built by the runtime's engine from the app's backend/Dockerfile.
+# The app's own image on another runtime, built by the runtime's engine from the app's backend/Dockerfile. The
+# Dockerfile names its base images by short names (FROM python:3.14, oven/bun:1), which Docker reads as Docker Hub's;
+# Podman resolves a short name only through the registries it is given, and a machine may give it none: its build is
+# given Docker Hub as the one to search (.webship-fastapi/registries.conf), for that build alone.
 function fastapi_build_image() {
   local project_path="$1" image="$2" engine=docker ;
   [ "$(fastapi_runtime)" = 'podman' ] && engine=podman ;
   echo "Building the app's image (${image}) from its backend/Dockerfile with ${engine}." ;
-  ( cd "${project_path}/${FASTAPI_APP}" && "${engine}" build -t "${image}" -f backend/Dockerfile . < /dev/null ) ;
+  if [ "${engine}" = podman ] ; then
+    local conf="${project_path}/${FASTAPI_OWN}/registries.conf" ;
+    printf '%s\n' "# The registry the short names of the app's Dockerfile are read from, for Podman's build of its image (as Docker" \
+      "# reads them). Written by the FastAPI builder of the workspace." 'unqualified-search-registries = ["docker.io"]' > "${conf}" || return 1 ;
+    ( cd "${project_path}/${FASTAPI_APP}" && CONTAINERS_REGISTRIES_CONF="${conf}" podman build -t "${image}" -f backend/Dockerfile . < /dev/null ) ;
+  else
+    ( cd "${project_path}/${FASTAPI_APP}" && docker build -t "${image}" -f backend/Dockerfile . < /dev/null ) ;
+  fi
 }
 
 # Wait until the app answers its health check (from the web container: the app's service on DDEV, itself elsewhere).

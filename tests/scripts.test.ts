@@ -320,7 +320,10 @@ for (const [rt, url, engine] of [['docker', 'http://127.0.0.1:43210', 'docker'],
   test(`on ${rt}: the app's own image as the stack, Postgres pinned as a service of the project, the app's server; never a ddev.site`, () => {
     const b = build({ layer: layer(rt, url), env: { RUNTIME: rt } });
     assert.strictEqual(b.status, 0, b.stderr + b.stdout);
-    assert.match(b.calls, new RegExp(`^${engine} build -t fastapi-app1:app -f backend/Dockerfile \\.$`, 'm'));
+    assert.match(b.calls, new RegExp(`^${engine} build -t fastapi-app1:app -f backend/Dockerfile \\.${engine === 'podman' ? ' \\(registries: registries\\.conf\\)' : ''}$`, 'm'));
+    const registries = path.join(b.project, '.webship-fastapi', 'registries.conf');
+    if (engine === 'podman') assert.match(fs.readFileSync(registries, 'utf8'), /^unqualified-search-registries = \["docker\.io"\]$/m, 'Podman reads the Dockerfile\'s short names as Docker does');
+    else assert.ok(!fs.existsSync(registries), 'Docker needs no registries of its own');
     assert.match(b.calls, /^rt_claim fastapi$/m);
     assert.match(b.calls, /^rt_stack image fastapi-app1:app$/m);
     assert.ok(b.calls.includes(`\nrt_service postgres ${DIGEST} --port 5432 --env-file .webship-fastapi/postgres.env --volume /var/lib/postgresql\n`), b.calls);
