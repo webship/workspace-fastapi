@@ -159,6 +159,10 @@ Restore ask first, on every runtime:
   with new connections. A restore that fails leaves the app's database as it was.
 - A file named `*.sql.gz` (the safety dump before a remove, a clone) is a gzipped SQL dump instead.
 
+On Docker Compose, Podman and Kubernetes the row's menu lists Export and Import for this project from Webship
+Workspace 1.0.43 (webship/workspace#942). Before it, the row's Backup works as above, and a restore is the
+terminal's, below.
+
 The same works on a terminal, in the project's folder, through the workspace's runtime verbs (DDEV's own `ddev
 export-db` there is DDEV's, which has no database to export):
 
