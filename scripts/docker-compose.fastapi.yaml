@@ -1,0 +1,59 @@
+# A FastAPI app of this project: its own image (the app's backend/Dockerfile: bun builds the front end, Python runs
+# FastAPI, which serves the API under /api/v1 and the built front end), served at the project's address, on the
+# project's own Postgres 18 (pinned by digest in .env), whose data is in a volume named after the project. DDEV's own db
+# is omitted: DDEV 1.24.7 runs Postgres only up to 17, so its export-db, import-db and snapshot do not reach this one;
+# the plugin's database hook does (the row's Backup and Restore). The project's web container keeps the mail catcher
+# (web:1025). Written by the FastAPI builder of the workspace (the plugin's docker-compose.fastapi.yaml); build again
+# rather than editing by hand. The app's settings are in ../.webship-fastapi/, which only you can read.
+services:
+  web:
+    environment:
+      - HTTP_EXPOSE=8093:80,8025:8025
+      - HTTPS_EXPOSE=8457:80,8026:8025
+  postgres:
+    image: "${FASTAPI_POSTGRES_IMAGE}"
+    container_name: ddev-${DDEV_SITENAME}-postgres
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}
+    restart: "no"
+    expose:
+      - "5432"
+    env_file:
+      - ${DDEV_APPROOT}/.webship-fastapi/postgres.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 5s
+    volumes:
+      - postgres:/var/lib/postgresql
+  fastapi:
+    build:
+      context: ${DDEV_APPROOT}/app
+      dockerfile: backend/Dockerfile
+    # The app's own image, built from its backend/Dockerfile. It takes no name of its own (compose names it after the
+    # project and the service, ddev-<name>-fastapi): DDEV pulls every image a service names before it builds, and asked
+    # for this one, a registry answers that it does not exist.
+    container_name: ddev-${DDEV_SITENAME}-fastapi
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}
+    restart: "no"
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ${DDEV_APPROOT}/.webship-fastapi/env
+    # The template's prestart.sh (its migrations and first superuser: safe to run again), then FastAPI's server.
+    command: ["bash", "-c", "cd /app/backend && bash scripts/prestart.sh && exec fastapi run --workers ${FASTAPI_WORKERS:-2} --port 8000"]
+    environment:
+      VIRTUAL_HOST: ${DDEV_HOSTNAME}
+      HTTP_EXPOSE: "80:8000"
+      HTTPS_EXPOSE: "443:8000"
+# Named after the project, so removing the project removes it with it, and a new build starts empty.
+volumes:
+  postgres:
